@@ -17,7 +17,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0);
+      background: rgba(0, 0, 0, 0.6);
       pointer-events: none;
       display: none;
     }
@@ -35,8 +35,8 @@
         .then(res => res.json())
         .then(status => {
           const dimOverlay = document.getElementById('dim-overlay');
-          const shouldShowDim = status.isLive && status.kalimat !== 'blank';
-          dimOverlay.style.display = shouldShowDim ? 'block' : 'none';
+        //   const shouldShowDim = status.isLive && status.kalimat !== 'blank';
+        //   dimOverlay.style.display = shouldShowDim ? 'block' : 'none';
           if (status.isLive) startKalimatPolling();
           else stopKalimatPolling();
         })
