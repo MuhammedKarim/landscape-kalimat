@@ -8,7 +8,7 @@
       cursor: none;
       height: 100%;
       margin: 0;
-      background: url('kalimat/blank.png') no-repeat center center fixed;
+      background: url('background.png') no-repeat center center fixed;
       background-size: cover;
     }
     #dim-overlay {
@@ -53,11 +53,12 @@
         .then(res => res.json())
         .then(status => {
           if (!status.isLive || !status.kalimat) {
-            setBackground('blank');
+            setBackground(null);
             currentKalimat = null;
           }
           if (status.kalimat !== currentKalimat) {
-            setBackground(status.kalimat || 'blank');
+            if (status.kalimat == 'blank' && currentKalimat == "Dua") status.kalimat = null
+            setBackground(status.kalimat || null);
             currentKalimat = status.kalimat;
           }
         })
@@ -75,7 +76,7 @@
       kalimatInterval = null;
       if (currentKalimat !== null) {
         currentKalimat = null;
-        setBackground('blank');
+        setBackground(null);
       }
     }
 
@@ -88,7 +89,7 @@
       };
 
       img.onerror = () => {
-        document.body.style.backgroundImage = "url('kalimat/blank.png')";
+        document.body.style.backgroundImage = "url('background.png')";
       };
 
       img.src = timestampedUrl;
