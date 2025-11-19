@@ -57,7 +57,7 @@
             currentKalimat = null;
           }
           if (status.kalimat !== currentKalimat) {
-            if (status.kalimat == 'blank' && currentKalimat == "Dua") status.kalimat = null
+          if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) status.kalimat = ''
             setBackground(status.kalimat || null);
             currentKalimat = status.kalimat;
           }
