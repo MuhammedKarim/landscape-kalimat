@@ -55,6 +55,7 @@
           if (!status.isLive || !status.kalimat) {
             setBackground(null);
             currentKalimat = null;
+            return;
           }
           if (status.kalimat !== currentKalimat) {
           if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) status.kalimat = ''
