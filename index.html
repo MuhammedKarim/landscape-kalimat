@@ -34,8 +34,8 @@
         .then(res => res.json())
         .then(status => {
           const dimOverlay = document.getElementById('dim-overlay');
-        //   const shouldShowDim = status.isLive && status.kalimat !== 'blank';
-        //   dimOverlay.style.display = shouldShowDim ? 'block' : 'none';
+          const shouldShowDim = status.isLive && status.kalimat !== 'blank';
+          dimOverlay.style.display = shouldShowDim ? 'block' : 'none';
           if (status.isLive) startKalimatPolling();
           else stopKalimatPolling();
         })
