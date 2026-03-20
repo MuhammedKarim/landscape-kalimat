@@ -57,10 +57,8 @@
             return;
           }
           if (status.kalimat !== currentKalimat) {
-          if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) status.kalimat = ''
-            setTimeout(() => {
-              setBackground(status.kalimat || null);
-            }, 17000);
+            if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) status.kalimat = ''
+            setBackground(status.kalimat || null);
             currentKalimat = status.kalimat;
           }
         })
