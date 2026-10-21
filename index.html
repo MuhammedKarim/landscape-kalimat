@@ -29,42 +29,85 @@
     let isLive = false;
     let intervalId = null;
 
-    function checkLiveStatus() {
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(status => {
-          const dimOverlay = document.getElementById('dim-overlay');
-          const shouldShowDim = status.isLive && status.kalimat !== 'blank';
-          dimOverlay.style.display = shouldShowDim ? 'block' : 'none';
-          if (status.isLive) startKalimatPolling();
-          else stopKalimatPolling();
-        })
-        .catch(err => {
-          console.error('Failed to fetch live status:', err);
-        });
+    const LIVE_STATUS_URL = API_URL;
+    let liveStatusRequest = null;
+    let liveStatusCheckInProgress = false;
+    let kalimatRequestInProgress = false;
+    let consecutiveOfflineResponses = 0;
+    let kalimatGeneration = 0;
+    let kalimatImageRequestId = 0;
+    let pendingKalimat = null;
+
+    async function getValidLiveStatus() {
+      // Both pollers share an in-flight request; failures never become offline signals.
+      if (liveStatusRequest) return liveStatusRequest;
+      liveStatusRequest = (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        try {
+          const response = await fetch(LIVE_STATUS_URL, { cache: 'no-store', signal: controller.signal });
+          if (!response.ok) throw new Error('Live-status HTTP ' + response.status);
+          const status = await response.json();
+          if (!status || typeof status.isLive !== 'boolean' ||
+              (status.isLive && (typeof status.kalimat !== 'string' || !status.kalimat.trim()))) {
+            throw new Error('Invalid live-status response');
+          }
+          return status;
+        } finally {
+          clearTimeout(timeout);
+        }
+      })();
+      try {
+        return await liveStatusRequest;
+      } finally {
+        liveStatusRequest = null;
+      }
+    }
+
+    async function checkLiveStatus() {
+      if (liveStatusCheckInProgress) return;
+      liveStatusCheckInProgress = true;
+      try {
+        const status = await getValidLiveStatus();
+        if (status.isLive) consecutiveOfflineResponses = 0;
+        else if (++consecutiveOfflineResponses < 2) return;
+        const dimOverlay = document.getElementById('dim-overlay');
+        dimOverlay.style.display = status.isLive && status.kalimat !== 'blank' ? 'block' : 'none';
+        if (status.isLive) startKalimatPolling();
+        else stopKalimatPolling();
+      } catch (err) {
+        console.error('Failed to fetch live status; keeping existing display:', err);
+      } finally {
+        liveStatusCheckInProgress = false;
+      }
     }
 
     let currentKalimat = null;
     let kalimatInterval = null;
 
-    function fetchKalimatStatus() {
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(status => {
-          if (!status.isLive || !status.kalimat) {
-            setBackground(null);
-            currentKalimat = null;
-            return;
-          }
-          if (status.kalimat !== currentKalimat) {
-            if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) status.kalimat = ''
-            setBackground(status.kalimat || null);
-            currentKalimat = status.kalimat;
-          }
-        })
-        .catch(err => {
-          console.error('Failed to fetch kalimat:', err);
-        });
+    async function fetchKalimatStatus() {
+      if (!kalimatInterval || kalimatRequestInProgress) return;
+      kalimatRequestInProgress = true;
+      const generation = kalimatGeneration;
+      try {
+        const status = await getValidLiveStatus();
+        if (!kalimatInterval || generation !== kalimatGeneration || !status.isLive) return;
+        if (status.kalimat === 'blank' && (currentKalimat === 'Dua' || currentKalimat === '')) {
+          setBackground(null);
+          currentKalimat = '';
+          document.getElementById('dim-overlay').style.display = 'none';
+          return;
+        }
+        if (status.kalimat !== currentKalimat) setBackground(status.kalimat);
+        else {
+          kalimatImageRequestId++;
+          pendingKalimat = null;
+        }
+      } catch (err) {
+        console.error('Failed to fetch Kalimat; keeping existing display:', err);
+      } finally {
+        kalimatRequestInProgress = false;
+      }
     }
 
     function startKalimatPolling() {
@@ -72,26 +115,35 @@
     }
 
     function stopKalimatPolling() {
+      if (!kalimatInterval) return;
       clearInterval(kalimatInterval);
       kalimatInterval = null;
-      if (currentKalimat !== null) {
-        currentKalimat = null;
-        setBackground(null);
-      }
+      kalimatGeneration++;
+      setBackground(null);
+      currentKalimat = null;
     }
 
     function setBackground(imageName) {
-      const timestampedUrl = `kalimat/${imageName}.jpg?t=${Date.now()}`;
-      const img = new Image();
-
-      img.onload = () => {
-        document.body.style.backgroundImage = `url('${timestampedUrl}')`;
-      };
-
-      img.onerror = () => {
+      if (imageName !== null && pendingKalimat === imageName) return;
+      pendingKalimat = imageName;
+      const generation = kalimatGeneration;
+      const imageRequestId = ++kalimatImageRequestId;
+      if (imageName === null) {
         document.body.style.backgroundImage = "url('background.png')";
+        return;
+      }
+      const timestampedUrl = 'kalimat/' + imageName + '.jpg?t=' + Date.now();
+      const img = new Image();
+      img.onload = () => {
+        if (!kalimatInterval || generation !== kalimatGeneration || imageRequestId !== kalimatImageRequestId) return;
+        pendingKalimat = null;
+        document.body.style.backgroundImage = "url('" + timestampedUrl + "')";
+        currentKalimat = imageName;
       };
-
+      img.onerror = () => {
+        if (imageRequestId === kalimatImageRequestId) pendingKalimat = null;
+        console.warn('Missing Kalimat image; keeping existing display:', timestampedUrl);
+      };
       img.src = timestampedUrl;
     }
 
